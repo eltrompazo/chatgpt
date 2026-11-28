@@ -133,7 +133,16 @@ const caveDark=new THREE.MeshBasicMaterial({color:0x06414c,side:THREE.DoubleSide
 const caveMouth=new THREE.Mesh(new THREE.CircleGeometry(8.1,24),caveDark);caveMouth.position.set(-22,-30,-46);scene.add(caveMouth);
 for(let i=0;i<18;i++){const theta=i/18*Math.PI*2;const x=-22+Math.cos(theta)*8.8,y=-30+Math.sin(theta)*8.5;const stone=rock(x,y,-46,rand(2.3,4.6),rand(2.5,5.3),rand(3,6));stone.rotation.z=theta+.6}
 for(let i=0;i<12;i++){const z=-49-i*2.2;rock(-30+rand(-1,1),-30,z,3,rand(5,8),3);rock(-14+rand(-1,1),-30,z,3,rand(5,8),3);rock(-22,-22+rand(-1,1),z,rand(7,10),3,3)}
-const caveGlow=new THREE.PointLight(0x8af9e7,9,24);caveGlow.position.set(-22,-29,-44);scene.add(caveGlow);
+// Cave interior stays unlit until the diver enters; the headlamp switches on automatically.
+const caveGlow=new THREE.PointLight(0x8af9e7,0,24);caveGlow.position.set(-22,-29,-44);scene.add(caveGlow);
+const diveTorch=new THREE.SpotLight(0xe8f8ff,0,34,Math.PI/8,.58,1.25);
+diveTorch.position.set(0,-.15,0);camera.add(diveTorch);
+const torchTarget=new THREE.Object3D();torchTarget.position.set(0,-.15,-14);camera.add(torchTarget);diveTorch.target=torchTarget;
+const caveShade=document.createElement('div');
+caveShade.setAttribute('aria-hidden','true');
+caveShade.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:2;background:radial-gradient(ellipse 34% 37% at 50% 50%,rgba(0,8,16,.16) 0%,rgba(0,5,12,.65) 65%,rgba(0,3,9,.93) 100%);opacity:0;transition:opacity .45s ease';
+document.body.appendChild(caveShade);
+let caveDarkness=0;
 const reefCenter=new THREE.Vector3(4,-10,15);
 for(let i=0;i<40;i++){const x=reefCenter.x+rand(-19,19),z=reefCenter.z+rand(-19,19),y=terrain(x,z);const mound=rock(x,y+rand(1,4),z,rand(2,5),rand(2,8),rand(2,5));mound.rotation.y=rand(0,6.28)}
 for(let i=0;i<90;i++){const x=reefCenter.x+rand(-19,19),z=reefCenter.z+rand(-19,19),h=rand(.5,2.2);const coral=new THREE.Mesh(coralGeo,coralMats[Math.floor(rnd()*coralMats.length)]);coral.position.set(x,terrain(x,z)+h*.5,z);coral.scale.set(rand(.3,.8),h,rand(.3,.8));scene.add(coral)}
@@ -329,7 +338,16 @@ scene.fog.color.copy(scene.background);
 scene.fog.density=.012+depthMix*.016;
 ambient.intensity=2.7-depthMix*1.85;
 sunlight.intensity=4.2-depthMix*3.85;
-renderer.toneMappingExposure=1.48-depthMix*.53;
+// The entrance fades to darkness as the diver passes into the gallery.
+const caveX=Math.abs(camera.position.x+22),caveY=Math.abs(camera.position.y+30);
+const insideCave=caveX<10&&caveY<10&&camera.position.z< -47&&camera.position.z> -78;
+const caveTarget=insideCave?1:0;
+caveDarkness=THREE.MathUtils.lerp(caveDarkness,caveTarget,Math.min(1,dt*3.5));
+diveTorch.intensity=caveDarkness*75;
+caveShade.style.opacity=String(caveDarkness*.9);
+ambient.intensity*=1-caveDarkness*.94;
+sunlight.intensity*=1-caveDarkness*.99;
+renderer.toneMappingExposure=(1.48-depthMix*.53)*(1-caveDarkness*.42);
 if(terrainMat.userData.shader)terrainMat.userData.shader.uniforms.uTime.value=t;animateSchools(t);animateSharks(t);animateWhale(t);for(const f of fish){const d=f.userData;f.position.x=d.origin.x+Math.sin(t*d.speed*.2+d.phase)*d.range;f.position.z=d.origin.z+Math.cos(t*d.speed*.16+d.phase)*d.range*.5;f.position.y=d.origin.y+Math.sin(t*.7+d.phase)*.7;f.rotation.y=Math.cos(t*d.speed*.2+d.phase)>0?0:Math.PI}for(const ray of rays){ray.mesh.position.x=ray.origin.x+Math.sin(t*ray.speed+ray.phase)*22;ray.mesh.position.z=ray.origin.z-t*ray.speed*.5%65;ray.mesh.rotation.z=Math.sin(t*2+ray.phase)*.06;ray.mesh.rotation.y=Math.sin(t*ray.speed+ray.phase)*.3}
 for(const b of bubbles){b.position.y+=dt*.6;if(b.position.y>0)b.position.y=-25}for(const m of markers){m.group.rotation.y=t*.18;m.group.children[1].rotation.y=t*.5;m.group.children[3].scale.setScalar(1+Math.sin(t*1.6)*.12)}
 if(active&&!paused){if(destination!==null){const target=locations[destination].position;const dx=target.x-camera.position.x,dz=target.z-camera.position.z,dist=Math.hypot(dx,dz);if(dist<15){destination=null}else{const targetAngle=Math.atan2(-dx,-dz);const delta=Math.atan2(Math.sin(targetAngle-yaw),Math.cos(targetAngle-yaw));document.getElementById('zone').textContent='RUMBO '+Math.round(dist)+' m · '+(Math.abs(delta)<.35?'RECTO':delta>0?'GIRA IZQUIERDA':'GIRA DERECHA')}}if(turnLeft)yaw+=dt*1.3;if(turnRight)yaw-=dt*1.3;const forward=Number(!!(cruise||keys.KeyW||keys.ArrowUp))-Number(!!(keys.KeyS||keys.ArrowDown)),side=Number(!!(keys.KeyD||keys.ArrowRight))-Number(!!(keys.KeyA||keys.ArrowLeft)),up=Number(!!keys.Space)-Number(!!(keys.ShiftLeft||keys.ShiftRight));const desired=new THREE.Vector3(side,up+Math.sin(pitch)*forward,-Math.cos(pitch)*forward);if(desired.lengthSq()>1)desired.normalize();desired.applyAxisAngle(new THREE.Vector3(0,1,0),yaw).multiplyScalar((keys.ControlLeft||keys.ControlRight)?30:15);velocity.lerp(desired,Math.min(1,dt*7));moveWithCollision(velocity.clone().multiplyScalar(dt));camera.position.x=THREE.MathUtils.clamp(camera.position.x,-130,130);camera.position.z=THREE.MathUtils.clamp(camera.position.z,-165,65);camera.position.y=THREE.MathUtils.clamp(camera.position.y,terrain(camera.position.x,camera.position.z)+3,-1);camera.rotation.set(pitch+Math.sin(t*.6)*.002,yaw,Math.sin(t*.7)*.004);if(professionalMixer)professionalMixer.update(dt);const swimIntensity=active&&!paused?THREE.MathUtils.clamp(velocity.length()/15,0,1):0;
