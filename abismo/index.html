@@ -165,6 +165,38 @@ const rays=[];const rayMat=new THREE.MeshStandardMaterial({color:0x263f49,side:T
 for(let i=0;i<4;i++){const shape=new THREE.Shape();shape.moveTo(0,1.6);shape.quadraticCurveTo(-.4,.6,-4.5,0);shape.quadraticCurveTo(-2,-.5,0,-.8);shape.quadraticCurveTo(2,-.5,4.5,0);shape.quadraticCurveTo(.4,.6,0,1.6);const mesh=new THREE.Mesh(new THREE.ShapeGeometry(shape,12),rayMat);mesh.rotation.x=-Math.PI/2;mesh.position.set(rand(-45,45),rand(-9,-4),rand(-100,-25));mesh.scale.setScalar(rand(.7,1.25));scene.add(mesh);rays.push({mesh,origin:mesh.position.clone(),phase:rand(0,6),speed:rand(.3,.7)})}
 const fish=[];const fishGeo=new THREE.SphereGeometry(1,10,7);const tailGeo=new THREE.ConeGeometry(1,1,3);const fishMats=[0xb4c8ad,0x9baab6,0xc5aa80,0x769fa5,0x698c92].map(color=>new THREE.MeshStandardMaterial({color,metalness:.22,roughness:.5}));
 for(let i=0;i<45;i++){const group=new THREE.Group(),mat=fishMats[Math.floor(rnd()*fishMats.length)],scale=rand(.12,.36);const body=new THREE.Mesh(fishGeo,mat);body.scale.set(1.5,.52,.23);group.add(body);const tail=new THREE.Mesh(tailGeo,mat);tail.rotation.z=-Math.PI/2;tail.position.x=-1.65;tail.scale.set(.65,.9,.35);group.add(tail);const dorsal=new THREE.Mesh(new THREE.ConeGeometry(.55,.85,3),mat);dorsal.position.set(-.25,.56,0);dorsal.rotation.z=-.3;group.add(dorsal);const eyeMat=new THREE.MeshBasicMaterial({color:0x07151a});for(const sign of [-1,1]){const eye=new THREE.Mesh(new THREE.SphereGeometry(.09,8,6),eyeMat);eye.position.set(.92,.13,sign*.21);group.add(eye)}group.scale.setScalar(scale);group.position.set(rand(-100,100),rand(-21,-6),rand(-145,55));group.userData={origin:group.position.clone(),phase:rand(0,7),speed:rand(.3,1.4),range:rand(4,18)};scene.add(group);fish.push(group)}
+
+// Dense underwater life, batched into instanced meshes to protect laptop performance.
+const meadowDummy=new THREE.Object3D();
+const meadowCount=1800;
+const meadowMeshes=[new THREE.InstancedMesh(bladeGeometry,grassMaterial,meadowCount),new THREE.InstancedMesh(bladeGeometry,grassMaterial2,meadowCount)];
+for(const meadow of meadowMeshes){meadow.instanceMatrix.setUsage(THREE.StaticDrawUsage);meadow.frustumCulled=false;scene.add(meadow)}
+for(let k=0;k<meadowMeshes.length;k++)for(let i=0;i<meadowCount;i++){
+ const z=rand(-145,60),x=rand(-115,115),height=rand(.4,1.45);
+ meadowDummy.position.set(x,terrain(x,z)+.08,z);
+ meadowDummy.rotation.set(0,rand(0,Math.PI*2),rand(-.38,.38));
+ meadowDummy.scale.set(rand(.65,1.3),height,rand(.65,1.3));
+ meadowDummy.updateMatrix();meadowMeshes[k].setMatrixAt(i,meadowDummy.matrix);
+}
+for(const meadow of meadowMeshes)meadow.instanceMatrix.needsUpdate=true;
+// Schools use a single animated instanced body mesh instead of hundreds of draw calls.
+const schoolCount=520,schoolDummy=new THREE.Object3D(),schoolData=[];
+const schoolBody=new THREE.InstancedMesh(new THREE.SphereGeometry(1,7,5),fishMats[1],schoolCount);
+schoolBody.instanceMatrix.setUsage(THREE.DynamicDrawUsage);schoolBody.frustumCulled=false;scene.add(schoolBody);
+for(let i=0;i<schoolCount;i++){
+ const school=Math.floor(i/65),centerX=[4,-20,24,45,-45,3,30,-60][school],centerZ=[15,30,-25,-100,-75,-125,-45,0][school];
+ const x=centerX+rand(-13,13),z=centerZ+rand(-13,13),floor=terrain(x,z);
+ schoolData.push({x,z,y:Math.min(-2,floor+rand(3,12)),size:rand(.12,.35),phase:rand(0,6.28),speed:rand(.3,1.2),school});
+}
+function animateSchools(t){
+ for(let i=0;i<schoolCount;i++){const f=schoolData[i],heading=t*f.speed*.23+f.phase;
+ schoolDummy.position.set(f.x+Math.sin(heading)*4,f.y+Math.sin(t*.8+f.phase)*.5,f.z+Math.cos(heading)*3);
+ schoolDummy.rotation.set(0,heading,0);schoolDummy.scale.set(f.size*1.9,f.size*.62,f.size*.45);
+ schoolDummy.updateMatrix();schoolBody.setMatrixAt(i,schoolDummy.matrix)}
+ schoolBody.instanceMatrix.needsUpdate=true;
+}
+animateSchools(0);
+
 // Floating sediment and bubbles.
 const particleGeo=new THREE.BufferGeometry(),particlePos=new Float32Array(850*3);for(let i=0;i<particlePos.length;i+=3){particlePos[i]=rand(-120,120);particlePos[i+1]=rand(-27,9);particlePos[i+2]=rand(-160,80)}particleGeo.setAttribute('position',new THREE.BufferAttribute(particlePos,3));const sediment=new THREE.Points(particleGeo,new THREE.PointsMaterial({color:0xb9ebe2,size:.075,transparent:true,opacity:.5,depthWrite:false}));scene.add(sediment);
 const bubbleGeo=new THREE.SphereGeometry(.08,6,6),bubbleMat=new THREE.MeshBasicMaterial({color:0xc6e9e7,transparent:true,opacity:.45});const bubbles=[];for(let i=0;i<18;i++){const m=new THREE.Mesh(bubbleGeo,bubbleMat);m.position.set(rand(-5,5),rand(-26,-5),rand(5,35));m.scale.setScalar(rand(.4,1.8));scene.add(m);bubbles.push(m)}
@@ -212,7 +244,7 @@ scene.fog.density=.012+depthMix*.016;
 ambient.intensity=2.7-depthMix*1.85;
 sunlight.intensity=4.2-depthMix*3.85;
 renderer.toneMappingExposure=1.48-depthMix*.53;
-if(terrainMat.userData.shader)terrainMat.userData.shader.uniforms.uTime.value=t;for(const f of fish){const d=f.userData;f.position.x=d.origin.x+Math.sin(t*d.speed*.2+d.phase)*d.range;f.position.z=d.origin.z+Math.cos(t*d.speed*.16+d.phase)*d.range*.5;f.position.y=d.origin.y+Math.sin(t*.7+d.phase)*.7;f.rotation.y=Math.cos(t*d.speed*.2+d.phase)>0?0:Math.PI}for(const ray of rays){ray.mesh.position.x=ray.origin.x+Math.sin(t*ray.speed+ray.phase)*22;ray.mesh.position.z=ray.origin.z-t*ray.speed*.5%65;ray.mesh.rotation.z=Math.sin(t*2+ray.phase)*.06;ray.mesh.rotation.y=Math.sin(t*ray.speed+ray.phase)*.3}
+if(terrainMat.userData.shader)terrainMat.userData.shader.uniforms.uTime.value=t;animateSchools(t);for(const f of fish){const d=f.userData;f.position.x=d.origin.x+Math.sin(t*d.speed*.2+d.phase)*d.range;f.position.z=d.origin.z+Math.cos(t*d.speed*.16+d.phase)*d.range*.5;f.position.y=d.origin.y+Math.sin(t*.7+d.phase)*.7;f.rotation.y=Math.cos(t*d.speed*.2+d.phase)>0?0:Math.PI}for(const ray of rays){ray.mesh.position.x=ray.origin.x+Math.sin(t*ray.speed+ray.phase)*22;ray.mesh.position.z=ray.origin.z-t*ray.speed*.5%65;ray.mesh.rotation.z=Math.sin(t*2+ray.phase)*.06;ray.mesh.rotation.y=Math.sin(t*ray.speed+ray.phase)*.3}
 for(const b of bubbles){b.position.y+=dt*.6;if(b.position.y>0)b.position.y=-25}for(const m of markers){m.group.rotation.y=t*.18;m.group.children[1].rotation.y=t*.5;m.group.children[3].scale.setScalar(1+Math.sin(t*1.6)*.12)}
 if(active&&!paused){if(destination!==null){const target=locations[destination].position;const dx=target.x-camera.position.x,dz=target.z-camera.position.z,dist=Math.hypot(dx,dz);if(dist<15){destination=null}else{const targetAngle=Math.atan2(-dx,-dz);const delta=Math.atan2(Math.sin(targetAngle-yaw),Math.cos(targetAngle-yaw));document.getElementById('zone').textContent='RUMBO '+Math.round(dist)+' m · '+(Math.abs(delta)<.35?'RECTO':delta>0?'GIRA IZQUIERDA':'GIRA DERECHA')}}if(turnLeft)yaw+=dt*1.3;if(turnRight)yaw-=dt*1.3;const forward=Number(!!(cruise||keys.KeyW||keys.ArrowUp))-Number(!!(keys.KeyS||keys.ArrowDown)),side=Number(!!(keys.KeyD||keys.ArrowRight))-Number(!!(keys.KeyA||keys.ArrowLeft)),up=Number(!!keys.Space)-Number(!!(keys.ShiftLeft||keys.ShiftRight));const desired=new THREE.Vector3(side,up+Math.sin(pitch)*forward,-Math.cos(pitch)*forward);if(desired.lengthSq()>1)desired.normalize();desired.applyAxisAngle(new THREE.Vector3(0,1,0),yaw).multiplyScalar((keys.ControlLeft||keys.ControlRight)?30:15);velocity.lerp(desired,Math.min(1,dt*7));moveWithCollision(velocity.clone().multiplyScalar(dt));camera.position.x=THREE.MathUtils.clamp(camera.position.x,-130,130);camera.position.z=THREE.MathUtils.clamp(camera.position.z,-165,65);camera.position.y=THREE.MathUtils.clamp(camera.position.y,terrain(camera.position.x,camera.position.z)+3,-1);camera.rotation.set(pitch+Math.sin(t*.6)*.002,yaw,Math.sin(t*.7)*.004);if(professionalMixer)professionalMixer.update(dt);const swimIntensity=active&&!paused?THREE.MathUtils.clamp(velocity.length()/15,0,1):0;
 const kick=t*(2.2+swimIntensity*3.2);
