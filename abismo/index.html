@@ -66,7 +66,7 @@ for(const side of [-1,1]){
  // Tapered fin blade, shaped as a swept polygon rather than a box.
  const shape=new THREE.Shape();shape.moveTo(-.15,0);shape.lineTo(.15,0);shape.lineTo(.22,.8);shape.quadraticCurveTo(0,.94,-.22,.8);shape.closePath();
  const finGeo=new THREE.ShapeGeometry(shape,8);
- const fin=new THREE.Mesh(finGeo,finsMat);fin.rotation.x=-Math.PI/2;fin.position.set(side*.025,-.09,1.24);leg.add(fin);
+ const fin=new THREE.Mesh(finGeo,finsMat);fin.rotation.x=Math.PI/2;fin.position.set(side*.025,-.09,1.24);leg.add(fin);
  const stripe=addBody(leg,new THREE.BoxGeometry(.025,.012,.65),seams,side*.025,-.095,1.62);
  finLegs.push({leg,fin,side});
 }
@@ -185,12 +185,15 @@ document.getElementById('enter').addEventListener('click',()=>{active=true;intro
 // Hover-to-look on mouse/trackpad, without clicking or locking the cursor.
 // Touchscreens retain touch-drag look controls below.
 let lastX=null,lastY=null;
-renderer.domElement.addEventListener('pointermove',e=>{
+// Listen on the whole document: crossing HUD buttons must not freeze camera look.
+document.addEventListener('pointermove',e=>{
  if(!active||paused||e.pointerType==='touch')return;
  if(lastX!==null){const dx=THREE.MathUtils.clamp(e.clientX-lastX,-90,90),dy=THREE.MathUtils.clamp(e.clientY-lastY,-90,90);yaw-=dx*.004;pitch=THREE.MathUtils.clamp(pitch-dy*.004,-1.42,1.42)}
  lastX=e.clientX;lastY=e.clientY;
 });
-renderer.domElement.addEventListener('pointerleave',()=>{lastX=null;lastY=null});
+window.addEventListener('blur',()=>{lastX=null;lastY=null});
+document.addEventListener('pointerout',e=>{if(!e.relatedTarget)lastX=lastY=null});
+
 document.addEventListener('keydown',e=>{keys[e.code]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='KeyE'&&!e.repeat)interact();if(e.code==='KeyP'&&!e.repeat)setCruise(!cruise);if(e.code==='KeyR'&&!e.repeat)rescue()});document.addEventListener('keyup',e=>keys[e.code]=false);addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
 for(const b of document.querySelectorAll('[data-key]')){b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);keys[b.dataset.key]=true});for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>keys[b.dataset.key]=false)}
 document.getElementById('explore').onclick=interact;let tx=null,ty=null;renderer.domElement.addEventListener('touchstart',e=>{if(e.touches.length){tx=e.touches[0].clientX;ty=e.touches[0].clientY}},{passive:true});renderer.domElement.addEventListener('touchmove',e=>{if(tx!==null&&e.touches.length){yaw-=(e.touches[0].clientX-tx)*.005;pitch=Math.max(-1.42,Math.min(1.42,pitch-(e.touches[0].clientY-ty)*.005));tx=e.touches[0].clientX;ty=e.touches[0].clientY}},{passive:true});renderer.domElement.addEventListener('touchend',()=>tx=null);
