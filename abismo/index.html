@@ -24,26 +24,56 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x087f91);scene.fog=new THREE.FogExp2(0x0b8290,.012);
 const camera=new THREE.PerspectiveCamera(73,innerWidth/innerHeight,.12,400);camera.position.set(0,-7,29);camera.rotation.order='YXZ';
-// Third-person preview: diver seen ahead of the camera, attached to view.
-// Lightweight primitives keep the website fast on laptops and mobile.
-const diver=new THREE.Group();camera.add(diver);scene.add(camera);diver.position.set(0,-1.15,-4.4);
-const suit=new THREE.MeshStandardMaterial({color:0x172d35,roughness:.84});
-const finsMat=new THREE.MeshStandardMaterial({color:0x202a2d,roughness:.75});
-const tankMat=new THREE.MeshStandardMaterial({color:0xb8c8c6,metalness:.6,roughness:.36});
-const yellow=new THREE.MeshStandardMaterial({color:0xe5ba46,roughness:.65});
-function diverPart(geo,mat,x,y,z,rx=0){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.rotation.x=rx;diver.add(m);return m}
-diverPart(new THREE.CapsuleGeometry(.33,.86,5,8),suit,0,0,0,Math.PI/2);
-diverPart(new THREE.SphereGeometry(.25,10,8),suit,0,.12,-.9);
+// Sculpted low-poly scuba diver: anatomical silhouette, wetsuit, BCD, cylinder,
+// mask, regulator, articulated arms/legs and shaped fins. No blocky mannequin.
+const diver=new THREE.Group();camera.add(diver);scene.add(camera);diver.position.set(0,-1.05,-5.2);
+const suit=new THREE.MeshStandardMaterial({color:0x101d25,roughness:.94});
+const panels=new THREE.MeshStandardMaterial({color:0x253c47,roughness:.88});
+const seams=new THREE.MeshStandardMaterial({color:0x5b8386,roughness:.82});
+const rubber=new THREE.MeshStandardMaterial({color:0x0b1117,roughness:.82});
+const finsMat=new THREE.MeshStandardMaterial({color:0x263e48,roughness:.77,side:THREE.DoubleSide});
+const tankMat=new THREE.MeshStandardMaterial({color:0xb9c7c7,metalness:.65,roughness:.35});
+const yellow=new THREE.MeshStandardMaterial({color:0xe3b74e,roughness:.58});
+const maskGlass=new THREE.MeshStandardMaterial({color:0x173f51,metalness:.15,roughness:.17});
+function addBody(parent,geometry,material,x,y,z,scale=[1,1,1],rot=[0,0,0]){const m=new THREE.Mesh(geometry,material);m.position.set(x,y,z);m.scale.set(...scale);m.rotation.set(...rot);parent.add(m);return m}
+const ball=new THREE.SphereGeometry(1,18,12);
+function organic(parent,material,x,y,z,sx,sy,sz){return addBody(parent,ball,material,x,y,z,[sx,sy,sz])}
+function limb(parent,material,x,y,z,length,radius,angle=Math.PI/2){return addBody(parent,new THREE.CapsuleGeometry(radius,length,8,12),material,x,y,z,[1,1,1],[angle,0,0])}
+// Horizontal swimmer: head points towards -Z, legs extend towards +Z.
+organic(diver,suit,0,0,-.22,.38,.27,.72); // shoulders, chest and waist
+organic(diver,panels,0,.12,-.27,.34,.21,.53); // BCD vest
+organic(diver,suit,0,-.025,.43,.29,.235,.36); // pelvis
+organic(diver,suit,0,.03,-1.06,.205,.21,.23); // hooded head
+organic(diver,rubber,0,.035,-1.255,.21,.13,.095); // mask rim
+organic(diver,maskGlass,0,.048,-1.315,.178,.095,.04); // glass
+organic(diver,rubber,0,-.09,-1.27,.085,.065,.075); // regulator
+for(const side of [-1,1]){
+ organic(diver,panels,side*.29,.13,-.39,.095,.14,.46); // shoulder BCD
+ organic(diver,seams,side*.345,-.01,-.4,.018,.028,.42);
+ const arm=new THREE.Group();arm.position.set(side*.32,-.025,-.67);diver.add(arm);
+ organic(arm,suit,side*.09,-.13,.18,.135,.13,.36);
+ organic(arm,suit,side*.16,-.19,.52,.105,.1,.27);
+ organic(arm,rubber,side*.16,-.19,.78,.11,.075,.12); // gloves
+}
 const finLegs=[];
 for(const side of [-1,1]){
- const leg=new THREE.Group();leg.position.set(side*.27,-.12,.35);diver.add(leg);
- const thigh=new THREE.Mesh(new THREE.CapsuleGeometry(.115,.62,4,6),suit);thigh.rotation.x=Math.PI/2;thigh.position.z=.34;leg.add(thigh);
- const fin=new THREE.Mesh(new THREE.BoxGeometry(.32,.055,.86),finsMat);fin.position.set(side*.035,-.1,1.04);leg.add(fin);
+ const leg=new THREE.Group();leg.position.set(side*.185,-.035,.59);diver.add(leg);
+ organic(leg,suit,0,-.02,.3,.165,.16,.43);
+ organic(leg,suit,side*.025,-.035,.81,.125,.125,.38);
+ organic(leg,rubber,side*.025,-.045,1.14,.14,.13,.2);
+ // Tapered fin blade, shaped as a swept polygon rather than a box.
+ const shape=new THREE.Shape();shape.moveTo(-.15,0);shape.lineTo(.15,0);shape.lineTo(.22,.8);shape.quadraticCurveTo(0,.94,-.22,.8);shape.closePath();
+ const finGeo=new THREE.ShapeGeometry(shape,8);
+ const fin=new THREE.Mesh(finGeo,finsMat);fin.rotation.x=-Math.PI/2;fin.position.set(side*.025,-.09,1.24);leg.add(fin);
+ const stripe=addBody(leg,new THREE.BoxGeometry(.025,.012,.65),seams,side*.025,-.095,1.62);
  finLegs.push({leg,fin,side});
- diverPart(new THREE.CapsuleGeometry(.1,.55,4,6),suit,side*.42,-.1,-.35,Math.PI/2);
 }
-diverPart(new THREE.CylinderGeometry(.18,.18,1.1,10),tankMat,0,.42,.15,Math.PI/2);
-diverPart(new THREE.BoxGeometry(.45,.08,.16),yellow,0,.3,-.85);
+// Cylinder along body axis, valve, BCD straps and high-pressure hose.
+addBody(diver,new THREE.CylinderGeometry(.19,.19,1.02,16),tankMat,0,.37,-.04,[1,1,1],[Math.PI/2,0,0]);
+organic(diver,tankMat,0,.37,-.56,.18,.18,.08);
+organic(diver,rubber,0,.38,-.65,.09,.09,.08);
+for(const z of [-.32,.22])addBody(diver,new THREE.BoxGeometry(.65,.065,.09),rubber,0,.31,z);
+addBody(diver,new THREE.BoxGeometry(.22,.06,.12),yellow,0,.26,-.74);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,matchMedia('(pointer:coarse)').matches?.75:1));renderer.shadowMap.enabled=false;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.48;renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.prepend(renderer.domElement);
 // Cinematic underwater post-processing: distance absorption and light scattering.
 const waterOverlay=document.createElement('div');waterOverlay.setAttribute('aria-hidden','true');waterOverlay.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:1;background:linear-gradient(180deg,rgba(37,220,205,.10),transparent 45%,rgba(0,70,81,.12));mix-blend-mode:screen';document.body.append(waterOverlay);
