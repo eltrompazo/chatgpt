@@ -69,8 +69,18 @@ const steel=new THREE.MeshStandardMaterial({color:0x344c53,metalness:.58,roughne
 const rusty=new THREE.MeshStandardMaterial({color:0x775343,metalness:.42,roughness:.92});
 const glass=new THREE.MeshStandardMaterial({color:0x102d3b,metalness:.2,roughness:.24});
 function shipBox(w,h,d,x,y,z,mat=steel){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);ship.add(m);return m}
-const hullShape=new THREE.Shape();hullShape.moveTo(-8,0);hullShape.lineTo(8,0);hullShape.lineTo(10,4);hullShape.lineTo(8,9);hullShape.lineTo(-8,9);hullShape.lineTo(-10,4);hullShape.closePath();
-const hull=new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape,{depth:54,bevelEnabled:true,bevelThickness:.6,bevelSize:.7,bevelSegments:1,steps:1}),steel);hull.rotation.x=Math.PI/2;hull.position.set(0,5,27);ship.add(hull);
+// Watertight opaque steel hull. Extrusion already runs along Z; rotating it
+// previously turned the hull on its side and made its sides appear missing.
+const hullShape=new THREE.Shape();hullShape.moveTo(-7.8,8);hullShape.lineTo(7.8,8);hullShape.lineTo(9.4,5.5);hullShape.lineTo(7.6,1.5);hullShape.lineTo(4.2,-1.5);hullShape.lineTo(-4.2,-1.5);hullShape.lineTo(-7.6,1.5);hullShape.lineTo(-9.4,5.5);hullShape.closePath();
+const hullGeometry=new THREE.ExtrudeGeometry(hullShape,{depth:50,bevelEnabled:false,steps:1,curveSegments:4});
+hullGeometry.computeVertexNormals();
+const hullSteel=new THREE.MeshStandardMaterial({color:0x47636b,metalness:.35,roughness:.83,side:THREE.DoubleSide,depthWrite:true,transparent:false});
+const hull=new THREE.Mesh(hullGeometry,hullSteel);hull.position.set(0,0,-25);ship.add(hull);
+// Tapered bow, distinct stern and superstructure give the vessel a modern silhouette.
+const bowShape=new THREE.Shape();bowShape.moveTo(-7.8,8);bowShape.lineTo(7.8,8);bowShape.lineTo(8.2,5);bowShape.lineTo(5,0);bowShape.lineTo(-5,0);bowShape.lineTo(-8.2,5);bowShape.closePath();
+const bow=new THREE.Mesh(new THREE.ExtrudeGeometry(bowShape,{depth:5,bevelEnabled:false}),hullSteel);bow.position.z=-30;bow.scale.x=.85;ship.add(bow);
+const keel=shipBox(5,1.2,49,0,-1.6,0,rusty);
+for(const side of [-1,1]){shipBox(.35,1.7,47,side*8.1,7.5,0,rusty);for(let k=0;k<7;k++){shipBox(.16,1.8,.16,side*8.1,9.1,-20+k*7,steel)}}
 shipBox(17,1,48,0,7,0,rusty);shipBox(12,7,14,0,11,-11);shipBox(10,5,10,0,16,-12);shipBox(7,2,8,0,20,-12,rusty);shipBox(2,10,2,0,25,-12,rusty);
 for(const side of [-1,1]){for(let i=0;i<9;i++){const port=new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,.1,10),glass);port.rotation.z=Math.PI/2;port.position.set(side*9.8,4,-21+i*5);ship.add(port)}for(let i=0;i<4;i++)shipBox(.12,1.5,2.2,side*6.1,12,-16+i*3,glass)}
 for(let i=0;i<5;i++)shipBox(15,.2,.15,0,9,-22+i*11,rusty);
