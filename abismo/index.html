@@ -63,28 +63,28 @@ const caveGlow=new THREE.PointLight(0x8af9e7,9,24);caveGlow.position.set(-22,-14
 const reefCenter=new THREE.Vector3(4,-20,-63);
 for(let i=0;i<40;i++){const x=reefCenter.x+rand(-19,19),z=reefCenter.z+rand(-19,19),y=terrain(x,z);const mound=rock(x,y+rand(1,4),z,rand(2,5),rand(2,8),rand(2,5));mound.rotation.y=rand(0,6.28)}
 for(let i=0;i<90;i++){const x=reefCenter.x+rand(-19,19),z=reefCenter.z+rand(-19,19),h=rand(.5,2.2);const coral=new THREE.Mesh(coralGeo,coralMats[Math.floor(rnd()*coralMats.length)]);coral.position.set(x,terrain(x,z)+h*.5,z);coral.scale.set(rand(.3,.8),h,rand(.3,.8));scene.add(coral)}
-// Modern 55 m steel shipwreck, with a continuous hull, bridge, portholes and deck fittings.
-const ship=new THREE.Group();ship.position.set(27,terrain(27,-112)+5,-112);ship.rotation.y=-.13;ship.rotation.z=.07;scene.add(ship);
-const steel=new THREE.MeshStandardMaterial({color:0x344c53,metalness:.58,roughness:.81});
-const rusty=new THREE.MeshStandardMaterial({color:0x775343,metalness:.42,roughness:.92});
-const glass=new THREE.MeshStandardMaterial({color:0x102d3b,metalness:.2,roughness:.24});
+// Large explorable modern steel wreck: hollow hull and torn starboard breach.
+const ship=new THREE.Group();ship.position.set(27,terrain(27,-112)+5,-112);ship.rotation.y=-.13;ship.rotation.z=.04;ship.scale.setScalar(1.65);scene.add(ship);
+const steel=new THREE.MeshStandardMaterial({color:0x48636b,metalness:.35,roughness:.87,side:THREE.DoubleSide});
+const rusty=new THREE.MeshStandardMaterial({color:0x805344,metalness:.25,roughness:.96,side:THREE.DoubleSide});
+const glass=new THREE.MeshStandardMaterial({color:0x183d47,roughness:.34});
 function shipBox(w,h,d,x,y,z,mat=steel){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(x,y,z);ship.add(m);return m}
-// Watertight opaque steel hull. Extrusion already runs along Z; rotating it
-// previously turned the hull on its side and made its sides appear missing.
-const hullShape=new THREE.Shape();hullShape.moveTo(-7.8,8);hullShape.lineTo(7.8,8);hullShape.lineTo(9.4,5.5);hullShape.lineTo(7.6,1.5);hullShape.lineTo(4.2,-1.5);hullShape.lineTo(-4.2,-1.5);hullShape.lineTo(-7.6,1.5);hullShape.lineTo(-9.4,5.5);hullShape.closePath();
-const hullGeometry=new THREE.ExtrudeGeometry(hullShape,{depth:50,bevelEnabled:false,steps:1,curveSegments:4});
-hullGeometry.computeVertexNormals();
-const hullSteel=new THREE.MeshStandardMaterial({color:0x47636b,metalness:.35,roughness:.83,side:THREE.DoubleSide,depthWrite:true,transparent:false});
-const hull=new THREE.Mesh(hullGeometry,hullSteel);hull.position.set(0,0,-25);ship.add(hull);
-// Tapered bow, distinct stern and superstructure give the vessel a modern silhouette.
-const bowShape=new THREE.Shape();bowShape.moveTo(-7.8,8);bowShape.lineTo(7.8,8);bowShape.lineTo(8.2,5);bowShape.lineTo(5,0);bowShape.lineTo(-5,0);bowShape.lineTo(-8.2,5);bowShape.closePath();
-const bow=new THREE.Mesh(new THREE.ExtrudeGeometry(bowShape,{depth:5,bevelEnabled:false}),hullSteel);bow.position.z=-30;bow.scale.x=.85;ship.add(bow);
-const keel=shipBox(5,1.2,49,0,-1.6,0,rusty);
-for(const side of [-1,1]){shipBox(.35,1.7,47,side*8.1,7.5,0,rusty);for(let k=0;k<7;k++){shipBox(.16,1.8,.16,side*8.1,9.1,-20+k*7,steel)}}
-shipBox(17,1,48,0,7,0,rusty);shipBox(12,7,14,0,11,-11);shipBox(10,5,10,0,16,-12);shipBox(7,2,8,0,20,-12,rusty);shipBox(2,10,2,0,25,-12,rusty);
-for(const side of [-1,1]){for(let i=0;i<9;i++){const port=new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,.1,10),glass);port.rotation.z=Math.PI/2;port.position.set(side*9.8,4,-21+i*5);ship.add(port)}for(let i=0;i<4;i++)shipBox(.12,1.5,2.2,side*6.1,12,-16+i*3,glass)}
-for(let i=0;i<5;i++)shipBox(15,.2,.15,0,9,-22+i*11,rusty);
-const shipLight=new THREE.PointLight(0x9af7e5,10,30);shipLight.position.set(0,12,-10);ship.add(shipLight);
+const shipColliders=[];function solidShip(w,h,d,x,y,z,mat=steel){shipBox(w,h,d,x,y,z,mat);shipColliders.push({x,y,z,hx:w/2,hy:h/2,hz:d/2})}
+solidShip(16,1,60,0,0,0,rusty); // keel / cargo-hold floor
+solidShip(16,.8,24,0,9,-18,rusty);solidShip(16,.8,14,0,9,23,rusty); // open broken deck
+solidShip(.8,9,60,-8,4.5,0); // port hull
+solidShip(.8,9,20,8,4.5,-20);solidShip(.8,9,19,8,4.5,20.5); // starboard breach: z=-10..11
+solidShip(16,9,.8,0,4.5,-30);solidShip(16,9,.8,0,4.5,30); // bulkheads
+// Jagged, visibly broken plating around a navigable 21m-wide side opening.
+for(let i=0;i<8;i++){const z=-10+i*3;const jag=new THREE.Mesh(new THREE.TetrahedronGeometry(1.2+i%3*.35),rusty);jag.position.set(8.4,i%2?8.8:.6,z);jag.rotation.set(i*.5,i*.7,i*.3);ship.add(jag)}
+for(let i=0;i<5;i++){const ribZ=-22+i*11;shipBox(.28,7,.3,-7.2,4.6,ribZ,rusty);if(ribZ < -10||ribZ>11)shipBox(.28,7,.3,7.2,4.6,ribZ,rusty)}
+// Bridge, funnel, deck rails and internal cargo hold details.
+solidShip(12,6,12,0,12,-19);solidShip(10,4,9,0,17,-19);
+shipBox(3,8,3,0,23,-19,rusty);
+for(const side of [-1,1]){for(let i=0;i<6;i++)shipBox(.12,1.5,.12,side*7.4,10,-26+i*10,rusty);for(let i=0;i<3;i++)shipBox(.15,1.1,2,side*6.1,18,-22+i*3,glass)}
+for(let i=0;i<5;i++){shipBox(2.8,2.1,3,-3,1.5,-7+i*4,rusty);shipBox(1.8,1.8,2,3,1.4,-7+i*4,steel)}
+const interiorLight=new THREE.PointLight(0x7adbc9,12,32);interiorLight.position.set(0,6,0);ship.add(interiorLight);
+const breachLight=new THREE.PointLight(0xafffed,8,27);breachLight.position.set(8,5,1);ship.add(breachLight);
 // Animated fish schools.
 // Broad manta rays crossing the open water.
 const rays=[];const rayMat=new THREE.MeshStandardMaterial({color:0x263f49,side:THREE.DoubleSide,roughness:.85});
@@ -96,13 +96,15 @@ const particleGeo=new THREE.BufferGeometry(),particlePos=new Float32Array(850*3)
 const bubbleGeo=new THREE.SphereGeometry(.08,6,6),bubbleMat=new THREE.MeshBasicMaterial({color:0xc6e9e7,transparent:true,opacity:.45});const bubbles=[];for(let i=0;i<18;i++){const m=new THREE.Mesh(bubbleGeo,bubbleMat);m.position.set(rand(-5,5),rand(-26,-5),rand(5,35));m.scale.setScalar(rand(.4,1.8));scene.add(m);bubbles.push(m)}
 // Light shafts suspended in the water.
 const shafts=[];const shaftGeo=new THREE.CylinderGeometry(5,13,90,18,1,true);for(let i=0;i<5;i++){const m=new THREE.Mesh(shaftGeo,new THREE.MeshBasicMaterial({color:0x74d4d0,transparent:true,opacity:rand(.014,.035),side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));m.position.set(rand(-90,90),8,rand(-140,40));m.rotation.z=rand(-.24,.24);scene.add(m);shafts.push(m)}
-const locations=[{title:'ESCUELA DE BUCEO',subtitle:'EL PRINCIPIO DE TODA AVENTURA',description:'Cada gran exploración comienza con una primera respiración bajo el agua. Descubre la formación recreativa y técnica, aprende a moverte con confianza y abre la puerta a un mundo nuevo.',position:new THREE.Vector3(-22,-14,-25),color:0x95f4df},{title:'INMERSIONES',subtitle:'DESCUBRE EL ARRECIFE',description:'Hay un universo entero bajo la superficie. Arrecifes, paredes y encuentros inesperados te esperan en cada inmersión. Explora, observa y déjate sorprender.',position:new THREE.Vector3(4,-16,-63),color:0xf0c992},{title:'EXPEDICIONES',subtitle:'MÁS ALLÁ DE LO CONOCIDO',description:'Explora el casco de un gran barco moderno hundido y descubre nuevos destinos. Viajes, exploraciones y experiencias para quienes siempre quieren ir un poco más lejos.',position:new THREE.Vector3(27,-11,-100),color:0x9cc8ed}];
+const locations=[{title:'ESCUELA DE BUCEO',subtitle:'EL PRINCIPIO DE TODA AVENTURA',description:'Cada gran exploración comienza con una primera respiración bajo el agua. Descubre la formación recreativa y técnica, aprende a moverte con confianza y abre la puerta a un mundo nuevo.',position:new THREE.Vector3(-22,-14,-25),color:0x95f4df},{title:'INMERSIONES',subtitle:'DESCUBRE EL ARRECIFE',description:'Hay un universo entero bajo la superficie. Arrecifes, paredes y encuentros inesperados te esperan en cada inmersión. Explora, observa y déjate sorprender.',position:new THREE.Vector3(4,-16,-63),color:0xf0c992},{title:'EXPEDICIONES',subtitle:'MÁS ALLÁ DE LO CONOCIDO',description:'Entra por la brecha del casco de un gran barco moderno hundido y descubre nuevos destinos. Viajes, exploraciones y experiencias para quienes siempre quieren ir un poco más lejos.',position:new THREE.Vector3(44,-12,-110),color:0x9cc8ed}];
 const guideLinks=document.getElementById('guide-links');let destination=null;locations.forEach((loc,i)=>{const b=document.createElement('button');b.textContent=['01  ESCUELA DE BUCEO','02  INMERSIONES','03  EXPEDICIONES'][i];b.style.cssText='display:block;width:100%;text-align:left;background:transparent;color:#e3f3ef;border:0;border-top:1px solid #a4ddd533;padding:9px 0;font:500 11px DM Sans;letter-spacing:.09em;cursor:pointer';b.onclick=()=>{destination=i;document.getElementById('zone').textContent='RUMBO A '+loc.title};guideLinks.append(b);const jump=document.createElement('button');jump.textContent='ACCEDER DIRECTAMENTE';jump.style.cssText='display:block;margin:-2px 0 8px;padding:6px 9px;border:1px solid #a4ddd566;background:#a4ddd51a;color:#c5eee7;font:600 9px DM Sans;letter-spacing:.11em;cursor:pointer';jump.onclick=()=>{camera.position.set(loc.position.x,loc.position.y,loc.position.z+7);destination=null;document.getElementById('zone').textContent=loc.title;const m=markers[i];if(m){paused=true;panel.classList.add('show');document.getElementById('panel-title').textContent=m.location.title;document.getElementById('panel-description').textContent=m.location.description;m.seen=true;const count=markers.filter(x=>x.seen).length;document.getElementById('found').textContent=count+' / 3 LUGARES DESCUBIERTOS';document.getElementById('bar').style.width=count/3*100+'%';if(document.pointerLockElement)document.exitPointerLock?.()}};guideLinks.append(jump)});const markers=[];for(const location of locations){const group=new THREE.Group();const light=new THREE.PointLight(location.color,28,45,2);group.add(light);const ring=new THREE.Mesh(new THREE.TorusGeometry(3.7,.085,8,64),new THREE.MeshBasicMaterial({color:location.color,transparent:true,opacity:.8}));group.add(ring);const inner=new THREE.Mesh(new THREE.IcosahedronGeometry(.34,1),new THREE.MeshBasicMaterial({color:location.color}));group.add(inner);const halo=new THREE.Mesh(new THREE.SphereGeometry(5.5,20,16),new THREE.MeshBasicMaterial({color:location.color,transparent:true,opacity:.055,depthWrite:false}));group.add(halo);group.position.copy(location.position);scene.add(group);markers.push({group,location,seen:false})}
-// Lightweight swimmer collision: rock ellipsoids and modern wreck bounding volumes.
-const collisionRocks=[];scene.traverse(o=>{if(o.isMesh&&o.geometry===rockGeo){collisionRocks.push({x:o.position.x,y:o.position.y,z:o.position.z,rx:Math.abs(o.scale.x)*.82+1,ry:Math.abs(o.scale.y)*.82+1,rz:Math.abs(o.scale.z)*.82+1})}});
-const shipBounds={x:27,y:ship.position.y+9,z:-112,rx:11,ry:12,rz:30};
-function blocked(p){for(const r of collisionRocks){const dx=(p.x-r.x)/r.rx,dy=(p.y-r.y)/r.ry,dz=(p.z-r.z)/r.rz;if(Math.abs(dx)<1&&Math.abs(dy)<1&&Math.abs(dz)<1&&dx*dx+dy*dy+dz*dz<1)return true}const b=shipBounds;if(Math.abs(p.x-b.x)<b.rx&&Math.abs(p.y-b.y)<b.ry&&Math.abs(p.z-b.z)<b.rz)return true;return false}
-function moveWithCollision(delta){const p=camera.position;const next=p.clone();for(const axis of ['x','y','z']){next.copy(p);next[axis]+=delta[axis];if(!blocked(next))p[axis]=next[axis]}}
+// Solid rock collision and individual ship plates: the breach remains enterable.
+const collisionRocks=[];scene.traverse(o=>{if(o.isMesh&&o.geometry===rockGeo)collisionRocks.push({x:o.position.x,y:o.position.y,z:o.position.z,rx:Math.abs(o.scale.x)*.82+1,ry:Math.abs(o.scale.y)*.82+1,rz:Math.abs(o.scale.z)*.82+1})});
+const localSwimmer=new THREE.Vector3();const swimmerRadius=.55;
+function blocked(p){for(const r of collisionRocks){const dx=(p.x-r.x)/r.rx,dy=(p.y-r.y)/r.ry,dz=(p.z-r.z)/r.rz;if(Math.abs(dx)<1&&Math.abs(dy)<1&&Math.abs(dz)<1&&dx*dx+dy*dy+dz*dz<1)return true}
+ship.updateMatrixWorld(true);localSwimmer.copy(p);ship.worldToLocal(localSwimmer);const rad=swimmerRadius/1.65;
+for(const c of shipColliders){if(Math.abs(localSwimmer.x-c.x)<c.hx+rad&&Math.abs(localSwimmer.y-c.y)<c.hy+rad&&Math.abs(localSwimmer.z-c.z)<c.hz+rad)return true}return false}
+function moveWithCollision(delta){const p=camera.position,next=p.clone();for(const axis of ['x','y','z']){next.copy(p);next[axis]+=delta[axis];if(!blocked(next))p[axis]=next[axis]}}
 let active=false,paused=false,yaw=0,pitch=0;const keys={},velocity=new THREE.Vector3(),clock=new THREE.Clock(),hud=document.getElementById('hud'),intro=document.getElementById('intro'),panel=document.getElementById('panel'),poi=document.getElementById('poi');
 document.getElementById('enter').addEventListener('click',()=>{active=true;intro.classList.add('hide');hud.classList.add('show');if(matchMedia('(pointer:fine)').matches)renderer.domElement.requestPointerLock?.()});renderer.domElement.addEventListener('click',()=>{if(active&&!paused&&matchMedia('(pointer:fine)').matches)renderer.domElement.requestPointerLock?.()});
 document.addEventListener('mousemove',e=>{if(document.pointerLockElement===renderer.domElement){yaw-=e.movementX*.0019;pitch=Math.max(-1.42,Math.min(1.42,pitch-e.movementY*.0019))}});
